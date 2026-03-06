@@ -1,0 +1,221 @@
+::-webkit-scrollbar {
+    width: 0;
+}
+
+::placeholder {
+    color: rgb(255 255 255 / 50%);
+}
+
+body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: url(../static/images/bg.webp) no-repeat center / cover fixed;
+    min-height: 100vh;
+    margin: 0;
+    padding: 20px;
+    box-sizing: border-box;
+}
+
+.container {
+    width: 100%;
+    max-width: 600px;
+    padding: 2rem;
+    border-radius: 16px;
+    background: rgb(255 255 255 / 15%);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgb(255 255 255 / 20%);
+}
+
+.container h2 {
+    margin: 0 0 1.5rem;
+    text-align: center;
+    color: #eee;
+}
+
+.form-group {
+    margin-bottom: 1.25rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #f0f0f0;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    font-size: 0.875rem;
+    color: #fff;
+    background: rgb(255 255 255 / 10%);
+    border: 1px solid rgb(255 255 255 / 20%);
+    border-radius: 8px;
+    outline: none;
+    transition: all 0.3s ease;
+    box-sizing: border-box;
+}
+
+.form-group input:focus {
+    border-color: rgb(255 255 255 / 40%);
+    background: rgb(255 255 255 / 15%);
+}
+
+.form-group input[type="submit"],
+.form-group input[type="button"] {
+    width: 100%;
+    padding: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: #fff;
+    background: rgb(255 255 255 / 25%);
+    border: 1px solid rgb(255 255 255 / 30%);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.form-group input[type="submit"]:hover,
+.form-group input[type="button"]:hover {
+    background: rgba(128, 128, 128, 0.35);
+}
+
+/* 消息弹窗样式 */
+.msg {
+    position: fixed;
+    top: 20px;
+    right: 15px;
+    padding: 15px;
+    border-radius: 8px;
+    color: #fff;
+    -webkit-backdrop-filter: blur(5px);
+            backdrop-filter: blur(5px);
+    z-index: 9999;
+    border: 1px solid rgb(255 255 255 / 20%);
+    -webkit-animation: fadeInTop .6s forwards;
+            animation: fadeInTop .6s forwards;
+}
+
+.msg-green { background-color: rgba(0, 126, 0, 0.7); }
+.msg-red { background-color: rgba(166, 19, 19, 0.7); }
+
+.msg-right { 
+    -webkit-animation: fadeOutRight .8s forwards; 
+    animation: fadeOutRight .8s forwards; 
+}
+
+@-webkit-keyframes fadeInTop {
+    0% { opacity: 0; transform: translateY(-100%); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes fadeInTop {
+    0% { opacity: 0; transform: translateY(-100%); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+@-webkit-keyframes fadeOutRight {
+    0% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(100%); }
+}
+@keyframes fadeOutRight {
+    0% { opacity: 1; transform: translateX(0); }
+    100% { opacity: 0; transform: translateX(100%); }
+}
+
+.check-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    border-radius: 12px;
+    overflow: hidden;
+    background: rgb(0 0 0 / 30%);
+}
+
+.check-table th,
+.check-table td {
+    padding: 15px 20px;
+    text-align: left;
+    border-bottom: 1px solid rgb(255 255 255 / 10%);
+}
+
+.check-table th {
+    background-color: rgb(255 255 255 / 15%);
+    font-weight: 600;
+    color: #eee;
+}
+
+.check-table tr:last-child td {
+    border-bottom: none;
+}
+
+.check-table tr.success {
+    background-color: rgb(46 204 113 / 15%);
+}
+
+.check-table tr.error {
+    background-color: rgb(231 76 60 / 15%);
+}
+
+.check-table tr.success td {
+    color: #2ecc71;
+}
+
+.check-table tr.error td {
+    color: #e74c3c;
+}
+
+.check-table tr td:last-child {
+    position: relative;
+    padding-right: 40px;
+}
+
+.check-table tr.success td:last-child::after {
+    content: "✓";
+    position: absolute;
+    right: 20px;
+    color: #2ecc71;
+    font-weight: bold;
+}
+
+.check-table tr.error td:last-child::after {
+    content: "✗";
+    position: absolute;
+    right: 20px;
+    color: #e74c3c;
+    font-weight: bold;
+}
+
+.error-message {
+    color: #fff;
+    margin-top: 15px;
+    border-radius: 8px;
+    background: rgb(231 76 60 / 20%);
+    border: 1px solid rgb(231 76 60 / 30%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.error-message::before {
+    content: "⚠️";
+    margin-right: 10px;
+    font-size: 1.2em;
+}
+
+.force-install {
+    display: inline-block;
+    margin: 6px;
+    padding: 6px;
+    background: rgb(255 77 79 / 25%);
+    color: #fff;
+    text-decoration: none;
+    border-radius: 8px;
+    border: 1px solid rgb(255 77 79 / 30%);
+    transition: all 0.3s ease;
+}
+
+.force-install:hover {
+    background: rgb(255 77 79 / 50%);
+}

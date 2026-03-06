@@ -1,0 +1,28 @@
+{
+  "name": "zq-img",
+  "version": "2.0.0",
+  "description": "ZQ-IMG是一款个人需求的高效图床，集成了强大的图片压缩功能与优雅的前台。后台管理瀑布流展示和 AJAX 刷新，能有效降低存储与带宽成本。",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/BAYUEQI/pixpro.git"
+  },
+  "keywords": [
+    "图片上传",
+    "图片管理",
+    "图片展示",
+    "OSS存储",
+    "S3存储",
+    "AJAX刷新"
+  ],
+  "author": "ZQ JACKY",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/BAYUEQI/ZQ-IMG/issues"
+  },
+  "homepage": "https://github.com/BAYUEQI/ZQ-IMG#readme",
+  "files": [
+    "static",
+    "README.md",
+    "LICENSE"
+  ]
+}
