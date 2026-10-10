@@ -284,14 +284,61 @@ function setupCopyAndDeleteHandlers() {
 }
 
 // 下载图片函数
-function downloadImage(url) {
+// 说明：浏览器里 <a download> 对「跨域」图片（协议/域名不一致，例如后台 https、
+// 图片 http）会被忽略，表现为点了没反应；fetch 又可能被 CORS 挡。
+// 因此统一走服务端中转 admin/download.php，由服务端加下载头输出，必定下载成功。
+async function downloadImage(url, filename) {
+    const name = filename || getDownloadFilename(url);
+    try {
+        await downloadViaServer(url, name);
+        UI.showNotification('下载已开始', 'success');
+    } catch (error) {
+        console.error('服务端下载失败，尝试浏览器直接下载:', error);
+        // 兜底：直接触发一次直链下载
+        fallbackDownload(url, name);
+        UI.showNotification('已发起下载，若未开始请右键图片另存为', 'success');
+    }
+}
+
+// 通过服务端中转下载
+function downloadViaServer(url, filename) {
+    return new Promise((resolve, reject) => {
+        const proxyUrl = '/admin/download.php?url=' + encodeURIComponent(url);
+        // 用隐藏 iframe 触发，浏览器会按响应头 Content-Disposition 下载，
+        // 且不会跳走当前页面
+        const iframe = document.createElement('iframe');
+        iframe.style.display = 'none';
+        iframe.src = proxyUrl;
+        document.body.appendChild(iframe);
+        setTimeout(() => {
+            iframe.remove();
+            resolve();
+        }, 1500);
+    });
+}
+
+// 从 URL 推断下载文件名
+function getDownloadFilename(url) {
+    const rawName = (url.split('/').pop() || '').split('?')[0];
+    let name = 'image.jpg';
+    try {
+        name = decodeURIComponent(rawName) || name;
+    } catch (e) {
+        name = rawName || name;
+    }
+    return name;
+}
+
+// 回退下载方式（同源或允许直接访问时有效）
+function fallbackDownload(url, filename) {
     const link = document.createElement('a');
     link.href = url;
-    link.download = url.split('/').pop() || 'image.jpg';
+    link.download = filename || getDownloadFilename(url);
+    link.rel = 'noopener';
+    link.style.display = 'none';
     document.body.appendChild(link);
     link.click();
-    document.body.removeChild(link);
-    UI.showNotification('下载已开始', 'success');
+    setTimeout(() => link.remove(), 1000);
 }
 
 function setupScrollToTop() {
@@ -488,36 +535,32 @@ function setupMultiSelect() {
     // 逐个下载，带间隔，避免浏览器把连续下载当成弹窗批量拦截而丢文件
     async function downloadMultiple(urls) {
         const total = urls.length;
+        let ok = 0;
         for (let i = 0; i < total; i++) {
-            downloadSingle(urls[i], i);
-            // 每张之间留出间隔，间隔随数量增大而略微增加
-            const gap = Math.min(300 + Math.floor(total / 20) * 50, 800);
+            const done = await downloadSingle(urls[i], i);
+            if (done) ok++;
+            // 每张之间留出间隔：浏览器对连续下载有节流，间隔太短会漏
+            const gap = Math.min(600 + Math.floor(total / 20) * 100, 1500);
             await sleep(gap);
         }
-        return total;
+        return { total, ok, failed: total - ok };
     }
 
     function sleep(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    // 单张下载：用隐藏 a 触发，下载完成后移除
-    function downloadSingle(url, index = 0) {
-        const rawName = url.split('/').pop().split('?')[0];
-        let filename = `image-${index + 1}.jpg`;
+    // 单张下载：走服务端中转，跨域也能下
+    async function downloadSingle(url, index = 0) {
+        const filename = getDownloadFilename(url);
         try {
-            filename = decodeURIComponent(rawName) || filename;
-        } catch (e) {
-            filename = rawName || filename;
+            await downloadViaServer(url, filename);
+            return true;
+        } catch (error) {
+            console.warn('第 ' + (index + 1) + ' 张下载失败，回退直链:', url, error);
+            fallbackDownload(url, filename);
+            return false;
         }
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = filename;
-        link.rel = 'noopener';
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        setTimeout(() => link.remove(), 1000);
     }
 
     async function handleDownloadSelected() {
@@ -547,15 +590,22 @@ function setupMultiSelect() {
         }
 
         UI.showNotification(`开始下载 ${urls.length} 张图片，请勿关闭页面`, 'success');
-        await downloadMultiple(urls);
+        const result = await downloadMultiple(urls);
         // 一次性下载大量文件时，浏览器可能弹出「是否允许多文件下载」的提示，
         // 需要点允许，否则后面的会被拦截（这是浏览器的安全限制，不是程序问题）
-        UI.showNotification(
-            urls.length > 10
-                ? `已发起 ${urls.length} 张下载，若浏览器提示多文件下载请点「允许」`
-                : `已发起 ${urls.length} 张图片的下载`,
-            'success'
-        );
+        if (result.failed > 0) {
+            UI.showNotification(
+                `下载完成：成功 ${result.ok} 张，失败 ${result.failed} 张`,
+                'error'
+            );
+        } else {
+            UI.showNotification(
+                urls.length > 10
+                    ? `已发起 ${urls.length} 张下载，若浏览器提示多文件下载请点「允许」`
+                    : `已发起 ${urls.length} 张图片的下载`,
+                'success'
+            );
+        }
     }
 
     async function handleDeleteSelected() {
