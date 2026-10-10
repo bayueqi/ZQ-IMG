@@ -34,6 +34,7 @@ function initialize() {
     setupEventListeners();
     loadSavedQuality();
     setupTabSwitching();
+    CustomSelect.init();
     loadCategories();
 }
 
@@ -77,7 +78,98 @@ function updateCategorySelector(categories) {
     newOption.value = '__new__';
     newOption.textContent = '新建分类';
     select.appendChild(newOption);
+
+    // 同步刷新自定义下拉框的选项列表
+    CustomSelect.refresh();
 }
+
+// 自定义下拉框控制器
+// 原生 select 的弹出菜单无法被 CSS 完全控制（浏览器/系统渲染），
+// 与整站的玻璃拟态风格冲突，因此用一个可完全自定义的面板替代。
+const CustomSelect = {
+    root: null,
+    select: null,
+    trigger: null,
+    label: null,
+    optionsList: null,
+
+    init() {
+        this.root = document.getElementById('categorySelect');
+        if (!this.root) return;
+
+        this.select = this.root.querySelector('select.category-select');
+        this.trigger = this.root.querySelector('.custom-select-trigger');
+        this.label = this.root.querySelector('.custom-select-label');
+        this.optionsList = this.root.querySelector('.custom-select-options');
+
+        // 点击触发器开合
+        this.trigger.addEventListener('click', (e) => {
+            e.stopPropagation();
+            this.toggle();
+        });
+
+        // 点击面板外关闭
+        document.addEventListener('click', (e) => {
+            if (!this.root.contains(e.target)) this.close();
+        });
+
+        // Esc 关闭
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') this.close();
+        });
+
+        this.refresh();
+    },
+
+    // 根据原生 select 重建选项面板
+    refresh() {
+        if (!this.optionsList || !this.select) return;
+        this.optionsList.innerHTML = '';
+
+        Array.from(this.select.options).forEach(opt => {
+            const li = document.createElement('li');
+            li.className = 'custom-select-option';
+            li.textContent = opt.textContent;
+            li.dataset.value = opt.value;
+            li.setAttribute('role', 'option');
+            if (opt.selected) {
+                li.classList.add('selected');
+                this.label.textContent = opt.textContent;
+            }
+            li.addEventListener('click', (e) => {
+                e.stopPropagation();
+                this.selectValue(opt.value);
+            });
+            this.optionsList.appendChild(li);
+        });
+    },
+
+    // 选中某个值：同步原生 select 并触发 change，保持原有逻辑不变
+    selectValue(value) {
+        this.select.value = value;
+        this.select.dispatchEvent(new Event('change', { bubbles: true }));
+        this.refresh();
+        this.close();
+    },
+
+    open() {
+        this.root.classList.add('open');
+        this.trigger.setAttribute('aria-expanded', 'true');
+    },
+
+    close() {
+        this.root.classList.remove('open');
+        this.trigger.setAttribute('aria-expanded', 'false');
+    },
+
+    toggle() {
+        if (this.root.classList.contains('open')) {
+            this.close();
+        } else {
+            this.open();
+        }
+    }
+};
 
 // API工具类
 const API = {

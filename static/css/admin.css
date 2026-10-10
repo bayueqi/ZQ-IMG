@@ -475,7 +475,7 @@ a.ellipsis {
     color: #eee;
 }
 
-.floating-link, .select-link, .category-link, .settings-link, .logout-link {
+.floating-link, .select-link, .category-link, .backup-link, .settings-link, .logout-link {
     transition: transform 0.5s;
 }
 
@@ -492,6 +492,7 @@ a.ellipsis {
 .rightside.shifted .settings-link,
 .rightside.shifted .select-link,
 .rightside.shifted .category-link,
+.rightside.shifted .backup-link,
 .rightside.shifted .logout-link {
     transform: translateY(-50px);
 }
@@ -794,6 +795,52 @@ a.ellipsis {
 
 .custom-input {
     margin-top: 8px;
+}
+
+/* 数据导入导出 */
+.settings-tip {
+    color: #ccc;
+    font-size: 13px;
+    line-height: 1.6;
+    margin: 0 0 12px 0;
+    opacity: 0.85;
+}
+
+.form-group input[type="file"] {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px dashed rgba(255, 255, 255, 0.3);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.08);
+    color: #eee;
+    font-size: 14px;
+}
+
+.form-group input[type="file"]::file-selector-button {
+    margin-right: 12px;
+    padding: 6px 14px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.15);
+    color: #eee;
+    cursor: pointer;
+    transition: background 0.3s ease;
+}
+
+.form-group input[type="file"]::file-selector-button:hover {
+    background: rgba(255, 255, 255, 0.28);
+}
+
+#backup-modal .settings-group h2 {
+    font-size: 1.05em;
+    margin-bottom: 12px;
+    padding-left: 10px;
+    border-left: 3px solid #4CAF50;
+}
+
+#export-btn,
+#import-btn {
+    margin-top: 10px;
 }
 
 .multi-select-mode .gallery-item {

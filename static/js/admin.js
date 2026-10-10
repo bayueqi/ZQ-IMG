@@ -19,6 +19,16 @@ const DOM = {
 // 全局状态
 let currentCategory = '';
 
+// 切换分页 / 分类 / 删除后，跨页选择的缓存必须失效，否则「全选」会拿到旧数据
+function invalidateAllItemsCache() {
+    if (window.__multiSelectCacheReset) {
+        window.__multiSelectCacheReset();
+    }
+}
+
+// 注册缓存重置回调（由 setupMultiSelect 注入）
+window.__multiSelectCacheReset = null;
+
 // 初始化所有必要的组件和功能
 function initialize() {
     initComponents();
@@ -33,6 +43,7 @@ function setupEventHandlers() {
     setupPagination();
     setupDocumentClickHandler();
     setupCategoryManagement();
+    setupBackup();
 }
 
 // API工具类
@@ -316,14 +327,23 @@ function setupDocumentClickHandler() {
 // 多选功能
 function setupMultiSelect() {
     // 多选状态管理
+    // selectedItems 存的是「当前已选中的图片 id 字符串」
+    // allItemsCache 用来缓存「全部图片」的 id -> {url, path}，实现跨页选择
     const state = {
         isMultiSelectMode: false,
-        selectedItems: new Set()
+        selectedItems: new Set(),
+        allItemsCache: null // null 表示尚未拉取
     };
-    
+
     const toolbar = createMultiSelectToolbar();
         const gallery = document.getElementById('gallery');
         const multiSelectBtn = document.querySelector('.select-link');
+
+        // 挂上缓存重置回调：分页/切换分类/删除后由外部调用，
+        // 保证下次「全选」重新拉取最新的全部图片
+        window.__multiSelectCacheReset = () => {
+            state.allItemsCache = null;
+        };
         
         // 创建工具栏
         function createMultiSelectToolbar() {
@@ -370,6 +390,29 @@ function setupMultiSelect() {
             toggleButton.textContent = '全选';
         }
     }
+
+    // 拉取「全部图片」（跨页，跟随当前分类筛选），并缓存
+    async function fetchAllItems() {
+        if (state.allItemsCache) return state.allItemsCache;
+        try {
+            let url = '/admin/index.php?action=get_all_images';
+            if (currentCategory) {
+                url += `&category=${encodeURIComponent(currentCategory)}`;
+            }
+            const response = await fetch(url, {
+                headers: { 'X-Requested-With': 'XMLHttpRequest' }
+            });
+            const data = await response.json();
+            if (!data.success) throw new Error(data.message || '获取全部图片失败');
+            state.allItemsCache = data.images || [];
+            return state.allItemsCache;
+        } catch (error) {
+            console.error('获取全部图片失败:', error);
+            UI.showNotification('获取全部图片失败', 'error');
+            state.allItemsCache = null;
+            throw error;
+        }
+    }
     
     function updateSelectedCount() {
         toolbar.querySelector('.selected-count').textContent = 
@@ -398,22 +441,35 @@ function setupMultiSelect() {
         updateSelectedCount();
     }
 
-    function handleToggleSelectAll() {
+    async function handleToggleSelectAll() {
         const button = this;
         const currentState = button.dataset.state;
         
         if (currentState === 'select') {
-            // 执行全选操作
-            const galleryItems = document.querySelectorAll('.gallery-item');
-            
-            galleryItems.forEach(item => {
-                const itemId = item.id.replace('image-', '');
-                state.selectedItems.add(itemId);
-                item.classList.add('selected');
+            // 全选「全部图片」（跨页），而不是只选当前页
+            let allItems;
+            try {
+                allItems = await fetchAllItems();
+            } catch (error) {
+                return;
+            }
+
+            allItems.forEach(item => {
+                const id = String(item.id);
+                state.selectedItems.add(id);
+                // 当前页上可见的，同步加上高亮 class
+                const el = document.getElementById('image-' + id);
+                if (el) el.classList.add('selected');
             });
-            
+
             updateSelectedCount();
-            UI.showNotification(`已全选 ${galleryItems.length} 张图片`, 'success');
+            const extra = allItems.length - document.querySelectorAll('.gallery-item').length;
+            UI.showNotification(
+                extra > 0
+                    ? `已全选全部 ${allItems.length} 张图片（含其他页 ${extra} 张）`
+                    : `已全选 ${allItems.length} 张图片`,
+                'success'
+            );
             
             // 切换按钮状态
             button.dataset.state = 'deselect';
@@ -429,42 +485,103 @@ function setupMultiSelect() {
         }
     }
 
-    function handleDownloadSelected() {
+    // 逐个下载，带间隔，避免浏览器把连续下载当成弹窗批量拦截而丢文件
+    async function downloadMultiple(urls) {
+        const total = urls.length;
+        for (let i = 0; i < total; i++) {
+            downloadSingle(urls[i], i);
+            // 每张之间留出间隔，间隔随数量增大而略微增加
+            const gap = Math.min(300 + Math.floor(total / 20) * 50, 800);
+            await sleep(gap);
+        }
+        return total;
+    }
+
+    function sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    // 单张下载：用隐藏 a 触发，下载完成后移除
+    function downloadSingle(url, index = 0) {
+        const rawName = url.split('/').pop().split('?')[0];
+        let filename = `image-${index + 1}.jpg`;
+        try {
+            filename = decodeURIComponent(rawName) || filename;
+        } catch (e) {
+            filename = rawName || filename;
+        }
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        link.rel = 'noopener';
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        setTimeout(() => link.remove(), 1000);
+    }
+
+    async function handleDownloadSelected() {
         if (state.selectedItems.size === 0) {
             UI.showNotification('请先选择要下载的图片', 'error');
             return;
         }
         
         const ids = Array.from(state.selectedItems);
+
+        // 优先从「全部图片」缓存里取 URL（跨页选择时必须），
+        // 缓存拿不到再退回当前页 DOM。
+        let urlMap = {};
+        if (state.allItemsCache) {
+            state.allItemsCache.forEach(item => { urlMap[String(item.id)] = item.url; });
+        }
+
         const urls = ids.map(id => {
+            if (urlMap[id]) return urlMap[id];
             const element = document.getElementById('image-' + id);
             return element ? element.querySelector('.download-btn').dataset.url : null;
         }).filter(url => url !== null);
-        
-        // 逐个下载图片
-        urls.forEach(url => {
-            downloadImage(url);
-        });
-        
-        UI.showNotification(`开始下载 ${urls.length} 张图片`, 'success');
+
+        if (urls.length === 0) {
+            UI.showNotification('未找到可下载的图片', 'error');
+            return;
+        }
+
+        UI.showNotification(`开始下载 ${urls.length} 张图片，请勿关闭页面`, 'success');
+        await downloadMultiple(urls);
+        // 一次性下载大量文件时，浏览器可能弹出「是否允许多文件下载」的提示，
+        // 需要点允许，否则后面的会被拦截（这是浏览器的安全限制，不是程序问题）
+        UI.showNotification(
+            urls.length > 10
+                ? `已发起 ${urls.length} 张下载，若浏览器提示多文件下载请点「允许」`
+                : `已发起 ${urls.length} 张图片的下载`,
+            'success'
+        );
     }
 
-    function handleDeleteSelected() {
+    async function handleDeleteSelected() {
         if (state.selectedItems.size === 0) {
             UI.showNotification('请先选择要删除的图片', 'error');
             return;
         }
         
         UI.createConfirmDialog(
-            '确定删除这些图片吗？',
+            `确定删除选中的 ${state.selectedItems.size} 张图片吗？`,
             async () => {
                 try {
                     const ids = Array.from(state.selectedItems);
+
+                    // path 同样优先从全部图片缓存里取，保证跨页删除正确
+                    let pathMap = {};
+                    if (state.allItemsCache) {
+                        state.allItemsCache.forEach(item => { pathMap[String(item.id)] = item.path; });
+                    }
+
                     const paths = ids.map(id => {
+                        if (pathMap[id]) return pathMap[id];
                         const element = document.getElementById('image-' + id);
                         return element ? element.querySelector('.delete-btn').dataset.path : null;
                     }).filter(path => path !== null);
-                    
+
                     await API.deleteImages(ids, paths);
                     clearSelection();
                     toggleMultiSelectMode();
@@ -545,6 +662,8 @@ function updatePageContent(data) {
     DOM.gallery.innerHTML = data.html;
     DOM.pagination.innerHTML = data.pagination;
     DOM.pageDisplay.textContent = `${data.currentPage}/${data.totalPages}`;
+    // 页面内容变了，跨页缓存作废
+    invalidateAllItemsCache();
     initComponents();
 }
 
@@ -617,5 +736,80 @@ async function selectCategory(category) {
         console.error('切换分类失败:', error);
         UI.showNotification('切换分类失败', 'error');
     }
+}
+
+// 数据导入导出功能
+function setupBackup() {
+    const backupLink = document.querySelector('.backup-link');
+    const backupModal = document.getElementById('backup-modal');
+    if (!backupLink || !backupModal) return;
+
+    backupLink.addEventListener('click', () => {
+        backupModal.classList.add('show');
+    });
+
+    // 关闭按钮（modal 内已有 onclick，这里兜底点击遮罩关闭）
+    backupModal.addEventListener('click', (e) => {
+        if (e.target === backupModal) {
+            backupModal.classList.remove('show');
+        }
+    });
+
+    const exportBtn = document.getElementById('export-btn');
+    exportBtn?.addEventListener('click', () => {
+        UI.showNotification('正在生成备份文件…');
+        // 直接走浏览器下载，交给后端设置下载头
+        window.location.href = '/admin/backup.php?action=export';
+    });
+
+    const importBtn = document.getElementById('import-btn');
+    importBtn?.addEventListener('click', async () => {
+        const fileInput = document.getElementById('import-file');
+        const file = fileInput?.files?.[0];
+        if (!file) {
+            UI.showNotification('请先选择备份文件', 'error');
+            return;
+        }
+
+        const mode = document.querySelector('input[name="import-mode"]:checked')?.value || 'merge';
+        if (mode === 'replace') {
+            const ok = confirm('「覆盖」模式会先清空当前数据库里的图片记录、系统设置和管理员账号，确定继续吗？');
+            if (!ok) return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('mode', mode);
+
+        importBtn.disabled = true;
+        importBtn.textContent = '导入中…';
+        UI.showNotification('正在导入，请稍候…');
+
+        try {
+            const response = await fetch('/admin/backup.php?action=import', {
+                method: 'POST',
+                body: formData
+            });
+            const data = await response.json();
+
+            if (data.success) {
+                const s = data.stat || {};
+                UI.showNotification(
+                    `导入完成：图片 ${s.images_imported || 0} 条（跳过 ${s.images_skipped || 0}），设置 ${s.configs || 0} 项，账号 ${s.users || 0} 个`,
+                    'success'
+                );
+                // 导入后刷新页面，让新数据生效
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                UI.showNotification('导入失败：' + (data.message || '未知错误'), 'error');
+            }
+        } catch (error) {
+            console.error('导入失败:', error);
+            UI.showNotification('导入失败，请检查文件或网络', 'error');
+        } finally {
+            importBtn.disabled = false;
+            importBtn.textContent = '开始导入';
+        }
+    });
 }
 

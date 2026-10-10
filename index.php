@@ -63,17 +63,19 @@ try {
                 </div>
                 <div id="category" class="parameters">
                     <label for="categoryInput">图片分类</label>
-                    <div class="category-container" style="display: flex; gap: 10px; width: 100%; align-items: center;">
-                        <div style="position: relative; flex: 1;">
-                            <select id="categoryInput" name="category" class="category-select blur" style="width: 100%; padding: 12px 40px 12px 15px; border-radius: 12px; font-size: 16px; outline: 0; transition: all 0.3s ease-in-out; background: linear-gradient(120deg, rgba(255, 255, 255, 0.25) 0%, rgba(170, 170, 170, 0.25) 100%); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15); color: #333; cursor: url(static/images/link.png) 16 16, pointer; appearance: none; -webkit-appearance: none; -moz-appearance: none;">
+                    <div class="category-container">
+                        <div class="custom-select" id="categorySelect">
+                            <select id="categoryInput" name="category" class="category-select blur">
                                 <option value="默认">默认</option>
                                 <option value="__new__">新建分类</option>
                             </select>
-                            <div style="position: absolute; right: 15px; top: 50%; transform: translateY(-50%); pointer-events: none; color: #666;">
-                                ▼
-                            </div>
+                            <button type="button" class="custom-select-trigger blur" aria-haspopup="listbox" aria-expanded="false">
+                                <span class="custom-select-label">默认</span>
+                                <span class="custom-select-arrow">▼</span>
+                            </button>
+                            <ul class="custom-select-options blur" role="listbox"></ul>
                         </div>
-                        <input type="text" id="newCategoryInput" class="new-category-input blur" placeholder="输入新分类名称" style="flex: 1; padding: 12px 15px; border-radius: 12px; font-size: 16px; outline: 0; transition: all 0.3s ease-in-out; background: linear-gradient(120deg, rgba(255, 255, 255, 0.25) 0%, rgba(170, 170, 170, 0.25) 100%); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(255, 255, 255, 0.4); box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15); color: #333; cursor: url(static/images/link.png) 16 16, pointer; display: none;">
+                        <input type="text" id="newCategoryInput" class="new-category-input blur" placeholder="输入新分类名称">
                     </div>
                 </div>
                 <div id="progressContainer" class="progressContainer">
