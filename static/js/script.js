@@ -154,11 +154,13 @@ const CustomSelect = {
 
     open() {
         this.root.classList.add('open');
+        this.optionsList.classList.add('open');
         this.trigger.setAttribute('aria-expanded', 'true');
     },
 
     close() {
         this.root.classList.remove('open');
+        this.optionsList.classList.remove('open');
         this.trigger.setAttribute('aria-expanded', 'false');
     },
 
