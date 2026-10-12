@@ -149,6 +149,8 @@ main {
     border-radius: 10px;
     padding: 20px;
     margin-bottom: 20px;
+    /* 分类下拉面板需要溢出到表单之外，否则会被下方卡片盖住 */
+    overflow: visible;
 }
 
 /* 删除图片按钮样式 */
@@ -244,6 +246,15 @@ main {
     gap: 10px;
     width: 100%;
     align-items: center;
+}
+
+/* 展开下拉时抬升整个分类区块，避免被下层卡片盖住 */
+#category {
+    position: relative;
+}
+
+.custom-select.open {
+    z-index: 60;
 }
 
 /* ===== 自定义分类下拉框（替代原生 select，保证风格统一）===== */
@@ -415,6 +426,7 @@ main {
 /* 进度条容器 */
 .progressContainer {
     position: fixed;
+    z-index: 9998;
     width: 100%;
     background: rgb(255 255 255 / 20%);
     border-radius: 10px;
@@ -439,6 +451,8 @@ main {
 
 /* URL输出样式 */
 .urlOutput {
+    position: relative;
+    z-index: 3;
     border-radius: 10px;
     padding: 20px;
     margin-bottom: 20px;
@@ -455,6 +469,8 @@ main {
 /* 标签按钮容器 */
 .tab-buttons {
     display: flex;
+    position: relative;
+    z-index: 80;
     border-radius: 8px;
     margin: 5px 0;
 }
@@ -538,6 +554,8 @@ header a:hover img,
 /* 图片信息展示样式 */
 .imageInfo {
     display: flex;
+    position: relative;
+    z-index: 1;
     border-radius: 10px;
     margin-bottom: 20px;
 }
