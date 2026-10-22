@@ -283,38 +283,55 @@ function setupCopyAndDeleteHandlers() {
     });
 }
 
-// 下载图片函数
-// 说明：浏览器里 <a download> 对「跨域」图片（协议/域名不一致，例如后台 https、
-// 图片 http）会被忽略，表现为点了没反应；fetch 又可能被 CORS 挡。
-// 因此统一走服务端中转 admin/download.php，由服务端加下载头输出，必定下载成功。
+// 下载图片：统一走服务端中转，跨域图片也能下载
+// 必须等响应真的拿到文件再提示成功，否则出错时用户只看到"已开始"却没文件
 async function downloadImage(url, filename) {
     const name = filename || getDownloadFilename(url);
     try {
         await downloadViaServer(url, name);
         UI.showNotification('下载已开始', 'success');
     } catch (error) {
-        console.error('服务端下载失败，尝试浏览器直接下载:', error);
-        // 兜底：直接触发一次直链下载
-        fallbackDownload(url, name);
-        UI.showNotification('已发起下载，若未开始请右键图片另存为', 'success');
+        console.error('服务端下载失败:', error);
+        UI.showNotification('下载失败：' + (error.message || '未知错误'), 'error');
     }
 }
 
-// 通过服务端中转下载
-function downloadViaServer(url, filename) {
-    return new Promise((resolve, reject) => {
-        const proxyUrl = '/admin/download.php?url=' + encodeURIComponent(url);
-        // 用隐藏 iframe 触发，浏览器会按响应头 Content-Disposition 下载，
-        // 且不会跳走当前页面
-        const iframe = document.createElement('iframe');
-        iframe.style.display = 'none';
-        iframe.src = proxyUrl;
-        document.body.appendChild(iframe);
-        setTimeout(() => {
-            iframe.remove();
-            resolve();
-        }, 1500);
-    });
+// 通过服务端中转下载（相对路径，装在子目录也能用）
+async function downloadViaServer(url, filename) {
+    const proxyUrl = 'download.php?url=' + encodeURIComponent(url);
+    const response = await fetch(proxyUrl, { credentials: 'same-origin' });
+    if (!response.ok) {
+        const text = (await response.text()).trim();
+        throw new Error(text || ('HTTP ' + response.status));
+    }
+    const blob = await response.blob();
+    if (!blob.size) {
+        throw new Error('服务端返回空文件');
+    }
+    const objectUrl = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = objectUrl;
+    link.download = getHeaderFilename(response) || filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+}
+
+// 从响应头 Content-Disposition 取服务端给的文件名，优先 UTF-8 版本
+function getHeaderFilename(response) {
+    const cd = response.headers.get('Content-Disposition') || '';
+    const utf8 = /filename\*=UTF-8''([^;]+)/i.exec(cd);
+    if (utf8) {
+        try {
+            return decodeURIComponent(utf8[1]);
+        } catch (e) {
+            return utf8[1];
+        }
+    }
+    const plain = /filename="?([^";]+)"?/i.exec(cd);
+    return plain ? plain[1] : '';
 }
 
 // 从 URL 推断下载文件名
