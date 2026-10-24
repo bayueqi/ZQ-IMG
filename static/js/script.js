@@ -344,7 +344,11 @@ const UI = {
 // 剪贴板工具类
 const Clipboard = {
     async copyToClipboard(event) {
-        const text = event.target.value;
+        let text = event.target.value;
+        // 页面是 https 时，把库里存成 http 的旧链接纠正成 https
+        if (typeof text === 'string' && text.indexOf('http://') === 0 && location.protocol === 'https:') {
+            text = 'https://' + text.slice(7);
+        }
         try {
             await navigator.clipboard.writeText(text);
             UI.showNotification('已复制到剪贴板');
