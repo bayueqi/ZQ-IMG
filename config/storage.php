@@ -8,6 +8,18 @@ use Upyun\Upyun;
 use Upyun\Config;
 
 /**
+ * 拼图片 URL 用的协议。后台「URL协议」填了自定义前缀（如 https://i1.wp.com/）原样返回；
+ * 只填 http:// 或 https:// 时一律输出 https —— 安装时 $_SERVER['HTTPS'] 常取不到
+ * （Nginx + PHP-FPM 不自动传），会把地址误存成 http。
+ */
+function effective_protocol($configured) {
+    if ($configured !== 'http://' && $configured !== 'https://') {
+        return $configured;
+    }
+    return 'https://';
+}
+
+/**
  * 处理本地存储
  *
  * @param string $finalFilePath 最终文件路径
@@ -25,7 +37,7 @@ function handleLocalStorage($finalFilePath, $newFilePath, $uploadDirWithDatePath
     $config = Database::getConfig($mysqli);
 
     logMessage("文件存储在本地: $finalFilePath");
-    $fileUrl = $config['protocol'] . $_SERVER['HTTP_HOST'] . '/' . $uploadDirWithDatePath . basename($finalFilePath);
+    $fileUrl = effective_protocol($config['protocol']) . $_SERVER['HTTP_HOST'] . '/' . $uploadDirWithDatePath . basename($finalFilePath);
     insertImageRecord($fileUrl, $finalFilePath, 'local', $compressedSize, $upload_ip, $user_id, $category);
 
     respondAndExit([
@@ -75,7 +87,7 @@ function handleOSSUpload($finalFilePath, $newFilePath, $datePath, $compressedSiz
         deleteLocalFile($finalFilePath, $newFilePath);
 
         logMessage("文件上传到OSS成功: $ossFilePath");
-        $fileUrl = $config['protocol'] . $config['oss_cdn_domain'] . '/' . $ossFilePath;
+        $fileUrl = effective_protocol($config['protocol']) . $config['oss_cdn_domain'] . '/' . $ossFilePath;
         insertImageRecord($fileUrl, $ossFilePath, 'oss', $compressedSize, $upload_ip, $user_id, $category);
 
         respondAndExit([
@@ -146,7 +158,7 @@ function handleS3Upload($finalFilePath, $newFilePath, $datePath, $compressedSize
         if (empty($config['s3_custom_url_prefix'])) {
             $fileUrl = $result['ObjectURL'];
         } else {
-            $fileUrl = $config['protocol'] . $config['s3_custom_url_prefix'] . '/' . $s3FilePath;
+            $fileUrl = effective_protocol($config['protocol']) . $config['s3_custom_url_prefix'] . '/' . $s3FilePath;
         }
 
         insertImageRecord($fileUrl, $s3FilePath, 's3', $compressedSize, $upload_ip, $user_id, $category);
@@ -208,7 +220,7 @@ function handleUpyunUpload($finalFilePath, $newFilePath, $datePath, $compressedS
         deleteLocalFile($finalFilePath, $newFilePath);
 
         logMessage("文件上传到又拍云成功: $upyunFilePath");
-        $fileUrl = $config['protocol'] . $config['upyun_domain'] . '/' . $upyunFilePath;
+        $fileUrl = effective_protocol($config['protocol']) . $config['upyun_domain'] . '/' . $upyunFilePath;
         insertImageRecord($fileUrl, $upyunFilePath, 'upyun', $compressedSize, $upload_ip, $user_id, $category);
 
         respondAndExit([
