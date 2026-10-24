@@ -154,6 +154,10 @@ const UI = {
 
     // 复制内容到剪贴板
     async copyToClipboard(text) {
+        // 页面是 https 时，把库里存成 http 的旧链接纠正成 https
+        if (typeof text === 'string' && text.indexOf('http://') === 0 && location.protocol === 'https:') {
+            text = 'https://' + text.slice(7);
+        }
         try {
             // 优先使用现代API
             await navigator.clipboard.writeText(text);
