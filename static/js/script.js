@@ -211,6 +211,9 @@ const API = {
 
 // UI工具类
 const UI = {
+    // 本次上传的图片 path，删除按钮据此删掉服务端文件与记录
+    uploadedPaths: [],
+
     // 显示通知消息
     showNotification(message, type = 'success') {
         const notification = document.createElement('div');
@@ -266,7 +269,10 @@ const UI = {
     // 更新图片信息
     updateImageInfo(response) {
         const imageName = response.url.split('/').pop().split('?')[0];
-        
+
+        // 记下服务端路径，删除时用它定位存储里的文件
+        this.rememberUploadedPath(response.path);
+
         // 更新压缩后的尺寸信息
         if (response.width && response.width > 0) {
             DOM.compressedWidth.textContent = response.width;
@@ -313,10 +319,41 @@ const UI = {
         return input;
     },
 
+    // 记录本次上传的图片路径
+    rememberUploadedPath(path) {
+        if (path && !this.uploadedPaths.includes(path)) {
+            this.uploadedPaths.push(path);
+        }
+    },
+
+    // 逐个请求服务端删除本次上传的图片（文件 + 数据库记录）
+    async deleteUploadedImages() {
+        const paths = this.uploadedPaths.slice();
+        this.uploadedPaths = [];
+
+        for (const path of paths) {
+            try {
+                const response = await fetch('/config/delete.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: 'path=' + encodeURIComponent(path)
+                });
+                const data = await response.json();
+                if (data.result !== 'success') {
+                    this.showNotification(data.message || '删除失败', 'error');
+                }
+            } catch (error) {
+                console.error('删除失败:', error);
+                this.showNotification('删除失败', 'error');
+            }
+        }
+    },
+
     // 清除图片信息
     clearImageInfo() {
         DOM.imagePreview.src = 'static/images/svg/up.svg';
         DOM.deleteImageButton.style.display = 'none';
+        this.uploadedPaths = [];
         DOM.originalWidth.textContent = '';
         DOM.originalHeight.textContent = '';
         DOM.originalSize.textContent = '';
@@ -453,9 +490,10 @@ function setupEventListeners() {
         event.preventDefault();
     });
 
-    // 删除按钮
-    DOM.deleteImageButton.addEventListener('click', (event) => {
+    // 删除按钮：删掉服务端已上传的图片，再清空界面
+    DOM.deleteImageButton.addEventListener('click', async (event) => {
         event.preventDefault();  // 阻止按钮默认行为
+        await UI.deleteUploadedImages();
         UI.clearImageInfo();
     });
 

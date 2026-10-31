@@ -1,4 +1,6 @@
 <?php
+session_status() == PHP_SESSION_NONE && session_start();
+
 require_once '../vendor/autoload.php';
 require_once 'database.php';
 
@@ -22,6 +24,10 @@ class ImageDeleter {
             return ['result' => 'error', 'message' => '路径不能为空'];
         }
 
+        if (!$this->canDelete($path)) {
+            return ['result' => 'error', 'message' => '无权删除该图片'];
+        }
+
         try {
             $storage = $this->getStorageType($path);
             if (empty($storage)) {
@@ -30,10 +36,35 @@ class ImageDeleter {
 
             $this->deleteFromStorage($storage, $path);
             $this->deleteDatabaseRecord($path);
-            
+            $this->forgetUploadedPath($path);
+
             return ['result' => 'success', 'message' => '图片删除成功'];
         } catch (Exception $e) {
             return ['result' => 'error', 'message' => $e->getMessage()];
+        }
+    }
+
+    /**
+     * 后台管理员可删除任意图片；前台只允许删除本次会话自己上传的图片
+     */
+    private function canDelete($path) {
+        if (!empty($_SESSION['loggedin'])) {
+            return true;
+        }
+
+        $uploaded = $_SESSION['uploaded_paths'] ?? [];
+        return is_array($uploaded) && in_array($path, $uploaded, true);
+    }
+
+    private function forgetUploadedPath($path) {
+        if (empty($_SESSION['uploaded_paths']) || !is_array($_SESSION['uploaded_paths'])) {
+            return;
+        }
+
+        $key = array_search($path, $_SESSION['uploaded_paths'], true);
+        if ($key !== false) {
+            unset($_SESSION['uploaded_paths'][$key]);
+            $_SESSION['uploaded_paths'] = array_values($_SESSION['uploaded_paths']);
         }
     }
 
@@ -66,8 +97,8 @@ class ImageDeleter {
     }
 
     private function deleteLocal($path) {
-        $localFilePath = '../' . $path;
-        if (file_exists($localFilePath)) {
+        $localFilePath = dirname(__DIR__) . '/' . ltrim($path, '/');
+        if (is_file($localFilePath)) {
             unlink($localFilePath);
         }
     }

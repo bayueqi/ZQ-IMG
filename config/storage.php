@@ -20,6 +20,26 @@ function effective_protocol($configured) {
 }
 
 /**
+ * 记录本次会话上传过的图片路径
+ *
+ * 前台的删除按钮据此校验：只允许删除本次会话自己上传的图片，
+ * 后台管理员登录后不受此限制。
+ */
+function rememberUploadedPath($path) {
+    if (session_status() !== PHP_SESSION_ACTIVE || $path === '') {
+        return;
+    }
+
+    if (!isset($_SESSION['uploaded_paths']) || !is_array($_SESSION['uploaded_paths'])) {
+        $_SESSION['uploaded_paths'] = [];
+    }
+
+    if (!in_array($path, $_SESSION['uploaded_paths'], true)) {
+        $_SESSION['uploaded_paths'][] = $path;
+    }
+}
+
+/**
  * 按 path + 存储方式查已有图片记录
  *
  * 图片按内容哈希命名，同一张图重复上传会落到同一个 path，靠这里命中已有记录。
@@ -45,6 +65,7 @@ function findImageByPath($path, $storage) {
 function respondExistingImage($row, $width, $height) {
     $path = $row['path'];
     $name = basename($path);
+    rememberUploadedPath($path);
 
     respondAndExit([
         'result' => 'success',

@@ -336,6 +336,9 @@ function insertImageRecord($fileUrl, $path, $storage, $size, $upload_ip, $user_i
     $stmt->bind_param("sssdssd", $fileUrl, $path, $storage, $size, $category, $upload_ip, $user_id);
     $stmt->execute();
     $stmt->close();
+
+    // 记到会话里，前台删除按钮凭此删除本次上传的图片
+    rememberUploadedPath($path);
 }
 
 // 新增辅助函数
