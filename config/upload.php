@@ -135,6 +135,21 @@ function getClientIp() {
 }
 
 /**
+ * 生成在目标目录内不重复的文件名（不含扩展名）
+ *
+ * 图片全部存在 i/ 同一个目录，重名会直接覆盖已有图片，
+ * 因此生成后必须确认目录里没有同名文件；文件名带日期前缀便于按上传时间排序。
+ */
+function generateUniqueFileName($dir) {
+    $prefix = date('Ymd') . '-';
+    do {
+        $name = $prefix . str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+    } while (glob($dir . $name . '.*'));
+
+    return $name;
+}
+
+/**
  * 处理上传的文件
  */
 function handleUploadedFile($file, $token, $referer) {
@@ -175,13 +190,14 @@ function handleUploadedFile($file, $token, $referer) {
     }
 
     // 准备文件路径
+    // 本地图片统一放在 i/ 一个目录下，不再按日期分子目录，备份迁移时整个 i/ 目录即全部图片
     $datePath = date('Y/m/d');
-    $uploadDir = 'i/' . $datePath . '/';
+    $uploadDir = 'i/';
     if (!is_dir($uploadDir) && !mkdir($uploadDir, 0777, true)) {
         respondAndExit(['result' => 'error', 'code' => 500, 'message' => '无法创建上传目录']);
     }
 
-    $randomFileName = str_pad(mt_rand(0, 999999), 6, '0', STR_PAD_LEFT);
+    $randomFileName = generateUniqueFileName($uploadDir);
     $extension = pathinfo($file['name'], PATHINFO_EXTENSION) ?: 'webp';
     $newFilePath = $uploadDir . $randomFileName . '.' . $extension;
     
@@ -196,6 +212,25 @@ function handleUploadedFile($file, $token, $referer) {
         // 处理JPEG方向
         if ($fileMimeType === 'image/jpeg') {
             correctJpegOrientation($finalFilePath, $quality);
+        }
+
+        // 按文件内容哈希命名：压缩、转码、方向校正都已做完，此时文件内容已定型。
+        // 同一张图无论上传多少次，哈希相同、文件名相同，链接因此保持不变。
+        $hashName = substr((string)hash_file('sha256', $finalFilePath), 0, 32);
+        if ($hashName !== '') {
+            $fileExt = strtolower(pathinfo($finalFilePath, PATHINFO_EXTENSION));
+            $hashedFilePath = $uploadDir . $hashName . '.' . $fileExt;
+            if ($hashedFilePath !== $finalFilePath) {
+                if (file_exists($hashedFilePath)) {
+                    // 内容相同的文件已在，删掉本次的处理产物，直接复用已有文件
+                    unlink($finalFilePath);
+                } elseif (!rename($finalFilePath, $hashedFilePath)) {
+                    // 重命名失败则保留原名，不影响正常返回
+                    $hashedFilePath = $finalFilePath;
+                }
+            }
+            $finalFilePath = $hashedFilePath;
+            $randomFileName = $hashName;
         }
 
         // 获取图片信息
@@ -248,6 +283,17 @@ function handleUploadedFile($file, $token, $referer) {
         // 处理存储
         $upload_ip = getClientIp();
         $storageTypes = array_keys(Database::getStorageConfig());
+
+        // 同一内容已入库过：直接返回原来的链接，不再插入重复记录
+        // 本地存储额外确认文件还在，记录损坏（图被手删）时按新图片重新入库
+        $recordPath = $storage === 'local' ? $finalFilePath : basename($finalFilePath);
+        $existing = findImageByPath($recordPath, $storage);
+        if ($existing && ($storage !== 'local' || file_exists($finalFilePath))) {
+            if ($storage !== 'local') {
+                deleteLocalFile($finalFilePath, $newFilePath);
+            }
+            respondExistingImage($existing, $dimensions['width'], $dimensions['height']);
+        }
         
         if ($storage === 'local') {
             handleLocalStorage($finalFilePath, $newFilePath, $uploadDir, filesize($finalFilePath), 

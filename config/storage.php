@@ -20,6 +20,50 @@ function effective_protocol($configured) {
 }
 
 /**
+ * 按 path + 存储方式查已有图片记录
+ *
+ * 图片按内容哈希命名，同一张图重复上传会落到同一个 path，靠这里命中已有记录。
+ */
+function findImageByPath($path, $storage) {
+    global $mysqli;
+
+    $stmt = $mysqli->prepare("SELECT id, url, path, size, category, upload_ip FROM images WHERE path = ? AND storage = ? LIMIT 1");
+    if (!$stmt) {
+        return null;
+    }
+    $stmt->bind_param("ss", $path, $storage);
+    $stmt->execute();
+    $row = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+
+    return $row ?: null;
+}
+
+/**
+ * 命中已有记录：按原样返回，链接与之前一致
+ */
+function respondExistingImage($row, $width, $height) {
+    $path = $row['path'];
+    $name = basename($path);
+
+    respondAndExit([
+        'result' => 'success',
+        'code' => 200,
+        'status' => true,
+        'name' => $name,
+        'data' => [
+            'url' => $row['url'],
+            'name' => $name,
+            'width' => $width,
+            'height' => $height,
+            'size' => (int)$row['size'],
+            'path' => $path
+        ],
+        'url' => $row['url']
+    ]);
+}
+
+/**
  * 处理本地存储
  *
  * @param string $finalFilePath 最终文件路径
@@ -81,7 +125,7 @@ function handleOSSUpload($finalFilePath, $newFilePath, $datePath, $compressedSiz
             $config['oss_endpoint']
         );
         
-        $ossFilePath = $datePath . '/' . basename($finalFilePath);
+        $ossFilePath = basename($finalFilePath);
         $ossClient->uploadFile($config['oss_bucket'], $ossFilePath, $finalFilePath);
 
         deleteLocalFile($finalFilePath, $newFilePath);
@@ -143,7 +187,7 @@ function handleS3Upload($finalFilePath, $newFilePath, $datePath, $compressedSize
             ],
         ]);
         
-        $s3FilePath = $datePath . '/' . basename($finalFilePath);
+        $s3FilePath = basename($finalFilePath);
         $result = $s3Client->putObject([
             'Bucket' => $config['s3_bucket'],
             'Key' => $s3FilePath,
@@ -213,7 +257,7 @@ function handleUpyunUpload($finalFilePath, $newFilePath, $datePath, $compressedS
         );
         $upyun = new \Upyun\Upyun($serviceConfig);
         
-        $upyunFilePath = $datePath . '/' . basename($finalFilePath);
+        $upyunFilePath = basename($finalFilePath);
         $fileContent = file_get_contents($finalFilePath);
         $upyun->write($upyunFilePath, $fileContent);
 

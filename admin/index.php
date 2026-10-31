@@ -165,7 +165,6 @@ $pagination = renderPagination($current_page, $total_pages);
         <a href="/" class="floating-link" title="返回主页"><img src="/static/images/svg/home.svg" alt="主页"></a>
         <a class="select-link" title="多选模式"><img src="/static/images/svg/select.svg" alt="多选"></a>
         <a class="category-link" title="分类管理"><img src="/static/images/svg/category.svg" alt="分类管理"></a>
-        <a class="backup-link" title="导入导出"><img src="/static/images/svg/backup.svg" alt="导入导出"></a>
         <a href="settings.php" class="settings-link" title="系统设置"><img src="/static/images/svg/Setting.svg" alt="设置"></a>
         <a href="?logout=true" class="logout-link" title="退出登录"><img src="/static/images/svg/logout.svg" alt="退出"></a>
         <a class="top-link" id="scroll-to-top" title="回到顶部"><img src="/static/images/svg/top.svg" alt="顶部"></a>
@@ -183,47 +182,6 @@ $pagination = renderPagination($current_page, $total_pages);
                 </button>
                 <h2>分类管理</h2>
                 <div id="category-list" class="category-list"></div>
-            </div>
-        </div>
-    </div>
-    <div id="backup-modal" class="modal">
-        <div class="modal-content">
-            <div class="settings-container">
-                <button class="close-modal" onclick="document.getElementById('backup-modal').classList.remove('show')">
-                    <img src="/static/images/svg/xmark.svg" alt="关闭">
-                </button>
-                <h2>数据导入导出</h2>
-
-                <div class="settings-group">
-                    <h2>导出备份</h2>
-                    <p class="settings-tip">把当前数据库里的图片记录、系统设置、管理员账号导出成一份 JSON 文件，保存好即可。</p>
-                    <button type="button" id="export-btn" class="submit-btn">导出备份文件</button>
-                </div>
-
-                <div class="settings-group">
-                    <h2>导入备份</h2>
-                    <p class="settings-tip">换数据库后，把之前导出的 JSON 文件上传进来即可恢复数据。</p>
-                    <div class="form-group">
-                        <label for="import-file">选择备份文件</label>
-                        <input type="file" id="import-file" accept=".json,application/json">
-                    </div>
-                    <div class="form-group">
-                        <label>导入方式</label>
-                        <div class="radio-group">
-                            <label>
-                                <input type="radio" name="import-mode" value="merge" checked>
-                                <span>合并（保留现有数据，重复的跳过）</span>
-                            </label>
-                            <label>
-                                <input type="radio" name="import-mode" value="replace">
-                                <span>覆盖（先清空现有数据再导入）</span>
-                            </label>
-                        </div>
-                    </div>
-                    <button type="button" id="import-btn" class="submit-btn">开始导入</button>
-                </div>
-
-                <p class="settings-tip">注意：导出的是数据库记录，不含图片文件本身。若使用本地存储，换服时请一并迁移 i/ 目录。</p>
             </div>
         </div>
     </div>

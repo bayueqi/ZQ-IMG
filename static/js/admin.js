@@ -43,7 +43,6 @@ function setupEventHandlers() {
     setupPagination();
     setupDocumentClickHandler();
     setupCategoryManagement();
-    setupBackup();
 }
 
 // API工具类
@@ -807,80 +806,5 @@ async function selectCategory(category) {
         console.error('切换分类失败:', error);
         UI.showNotification('切换分类失败', 'error');
     }
-}
-
-// 数据导入导出功能
-function setupBackup() {
-    const backupLink = document.querySelector('.backup-link');
-    const backupModal = document.getElementById('backup-modal');
-    if (!backupLink || !backupModal) return;
-
-    backupLink.addEventListener('click', () => {
-        backupModal.classList.add('show');
-    });
-
-    // 关闭按钮（modal 内已有 onclick，这里兜底点击遮罩关闭）
-    backupModal.addEventListener('click', (e) => {
-        if (e.target === backupModal) {
-            backupModal.classList.remove('show');
-        }
-    });
-
-    const exportBtn = document.getElementById('export-btn');
-    exportBtn?.addEventListener('click', () => {
-        UI.showNotification('正在生成备份文件…');
-        // 直接走浏览器下载，交给后端设置下载头
-        window.location.href = '/admin/backup.php?action=export';
-    });
-
-    const importBtn = document.getElementById('import-btn');
-    importBtn?.addEventListener('click', async () => {
-        const fileInput = document.getElementById('import-file');
-        const file = fileInput?.files?.[0];
-        if (!file) {
-            UI.showNotification('请先选择备份文件', 'error');
-            return;
-        }
-
-        const mode = document.querySelector('input[name="import-mode"]:checked')?.value || 'merge';
-        if (mode === 'replace') {
-            const ok = confirm('「覆盖」模式会先清空当前数据库里的图片记录、系统设置和管理员账号，确定继续吗？');
-            if (!ok) return;
-        }
-
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('mode', mode);
-
-        importBtn.disabled = true;
-        importBtn.textContent = '导入中…';
-        UI.showNotification('正在导入，请稍候…');
-
-        try {
-            const response = await fetch('/admin/backup.php?action=import', {
-                method: 'POST',
-                body: formData
-            });
-            const data = await response.json();
-
-            if (data.success) {
-                const s = data.stat || {};
-                UI.showNotification(
-                    `导入完成：图片 ${s.images_imported || 0} 条（跳过 ${s.images_skipped || 0}），设置 ${s.configs || 0} 项，账号 ${s.users || 0} 个`,
-                    'success'
-                );
-                // 导入后刷新页面，让新数据生效
-                setTimeout(() => window.location.reload(), 1500);
-            } else {
-                UI.showNotification('导入失败：' + (data.message || '未知错误'), 'error');
-            }
-        } catch (error) {
-            console.error('导入失败:', error);
-            UI.showNotification('导入失败，请检查文件或网络', 'error');
-        } finally {
-            importBtn.disabled = false;
-            importBtn.textContent = '开始导入';
-        }
-    });
 }
 
